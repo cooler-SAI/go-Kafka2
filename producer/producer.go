@@ -21,6 +21,7 @@ func main() {
 	defer func(writer *kafka.Writer) {
 		err := writer.Close()
 		if err != nil {
+			fmt.Println("Error closing writer:")
 
 		}
 	}(writer)

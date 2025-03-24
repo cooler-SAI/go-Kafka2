@@ -20,6 +20,7 @@ func main() {
 	defer func(reader *kafka.Reader) {
 		err := reader.Close()
 		if err != nil {
+			fmt.Println("Error closing reader:")
 
 		}
 	}(reader)
