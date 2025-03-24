@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"time"
 
 	"github.com/segmentio/kafka-go"
 )
@@ -22,19 +23,26 @@ func main() {
 		err := writer.Close()
 		if err != nil {
 			fmt.Println("Error closing writer:")
-
 		}
 	}(writer)
 
-	msg := kafka.Message{
-		Key:   []byte("key"),
-		Value: []byte("Hello! How are you?"),
-	}
+	ticker := time.NewTicker(5 * time.Second)
+	defer ticker.Stop()
 
-	err := writer.WriteMessages(context.Background(), msg)
-	if err != nil {
-		log.Fatalf("Failed to write message: %s", err)
-	}
+	for {
+		select {
+		case <-ticker.C:
+			msg := kafka.Message{
+				Key:   []byte("check"),
+				Value: []byte(fmt.Sprintf("Checking... [%s]", time.Now().Format("2006-01-02 15:04:05"))),
+			}
 
-	fmt.Println("Message sent successfully!")
+			err := writer.WriteMessages(context.Background(), msg)
+			if err != nil {
+				log.Printf("Failed to send message: %s", err)
+			} else {
+				log.Printf("Sent: %s", msg.Value)
+			}
+		}
+	}
 }
