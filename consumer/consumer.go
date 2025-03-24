@@ -3,15 +3,20 @@ package main
 import (
 	"context"
 	"errors"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/rs/zerolog"
+	"github.com/rs/zerolog/log"
 	"github.com/segmentio/kafka-go"
 )
 
 func main() {
+	// Настройка вывода
+	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: "2006-01-02 15:04:05"}
+	log.Logger = zerolog.New(output).With().Timestamp().Logger()
+
 	topic := "test-topic"
 	brokerAddress := "localhost:9092"
 
@@ -21,9 +26,9 @@ func main() {
 	})
 	defer func() {
 		if err := reader.Close(); err != nil {
-			log.Printf("Failed to close reader: %s", err)
+			log.Error().Err(err).Msg("Failed to close Kafka reader")
 		}
-		log.Println("Consumer stopped gracefully!")
+		log.Info().Msg("Consumer stopped gracefully 🛑")
 	}()
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -35,25 +40,26 @@ func main() {
 
 	go func() {
 		<-sigChan
-		log.Println("Shutting down consumer...")
+		log.Warn().Msg("Shutting down consumer...")
 		cancel()
 	}()
 
-	log.Println("Consumer started. Waiting for messages...")
+	log.Info().Msg("Consumer started! Waiting for messages...")
+
 	for {
 		msg, err := reader.ReadMessage(ctx)
 		if err != nil {
 			if errors.Is(err, context.Canceled) {
 				return
 			}
-			log.Printf("Failed to read message: %s", err)
+			log.Error().Err(err).Msg("Failed to read message")
 			continue
 		}
 
-		log.Printf("Received: %s (Partition: %d, Offset: %d)",
-			string(msg.Value),
-			msg.Partition,
-			msg.Offset,
-		)
+		log.Info().
+			Str("value", string(msg.Value)).
+			Int("partition", msg.Partition).
+			Int64("offset", msg.Offset).
+			Msg("Received message 📩")
 	}
 }
