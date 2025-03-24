@@ -1,0 +1,21 @@
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: 'kafka'
+    static_configs:
+      - targets: ['kafka:9102']  # JMX-экспортер Kafka
+        labels:
+          service: 'kafka'
+
+  - job_name: 'go-producer'
+    static_configs:
+      - targets: ['host.docker.internal:2112']  # Метрики producer
+        labels:
+          service: 'producer'
+
+  - job_name: 'go-consumer'
+    static_configs:
+      - targets: ['host.docker.internal:2113']  # Метрики consumer
+        labels:
+          service: 'consumer'
