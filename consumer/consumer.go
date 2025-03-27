@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"os"
 	"os/signal"
@@ -35,14 +36,13 @@ func init() {
 }
 
 func main() {
-	// Настройка логгера
+
 	output := zerolog.ConsoleWriter{
 		Out:        os.Stdout,
 		TimeFormat: time.RFC3339,
 	}
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
-	// HTTP-сервер для метрик
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
 		log.Info().Msg("Prometheus metrics server started on :2113")
@@ -51,7 +51,6 @@ func main() {
 		}
 	}()
 
-	// Инициализация консьюмера Kafka
 	reader := kafka.NewReader(kafka.ReaderConfig{
 		Brokers:  []string{"localhost:9092"},
 		Topic:    "test-topic",
@@ -68,7 +67,6 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Обработка сигналов завершения
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
@@ -82,7 +80,7 @@ func main() {
 	for {
 		msg, err := reader.ReadMessage(ctx)
 		if err != nil {
-			if err == context.Canceled {
+			if errors.Is(err, context.Canceled) {
 				break
 			}
 			readErrors.Inc()
@@ -97,7 +95,6 @@ func main() {
 			Int64("offset", msg.Offset).
 			Msg("Message processed")
 
-		// Реальная обработка сообщения
 		processMessage(msg.Value)
 	}
 
@@ -105,6 +102,6 @@ func main() {
 }
 
 func processMessage(value []byte) {
-	// Ваша бизнес-логика здесь
+
 	log.Debug().Str("content", string(value)).Msg("Processing message")
 }

@@ -43,15 +43,17 @@ func init() {
 }
 
 func main() {
-	// Настройка логгера
+
 	output := zerolog.ConsoleWriter{Out: os.Stdout, TimeFormat: time.RFC3339}
 	log.Logger = zerolog.New(output).With().Timestamp().Logger()
 
-	// HTTP-сервер для метрик
 	go func() {
 		http.Handle("/metrics", promhttp.Handler())
 		log.Info().Msg("Starting metrics server on :2112")
-		http.ListenAndServe(":2112", nil)
+		err := http.ListenAndServe(":2112", nil)
+		if err != nil {
+			return
+		}
 	}()
 
 	writer := &kafka.Writer{
@@ -59,7 +61,12 @@ func main() {
 		Topic:    "test-topic",
 		Balancer: &kafka.LeastBytes{},
 	}
-	defer writer.Close()
+	defer func(writer *kafka.Writer) {
+		err := writer.Close()
+		if err != nil {
+			log.Error().Err(err).Msg("Failed to close writer")
+		}
+	}(writer)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
@@ -72,7 +79,7 @@ func main() {
 		cancel()
 	}()
 
-	rand.Seed(time.Now().UnixNano())
+	rand.New(rand.NewSource(time.Now().UnixNano()))
 	ticker := time.NewTicker(1 * time.Second)
 	defer ticker.Stop()
 
@@ -81,8 +88,8 @@ func main() {
 	for {
 		select {
 		case <-ticker.C:
-			// Динамическое изменение частоты сообщений
-			rate := 3 + rand.Intn(7) // Случайное значение 3-9 сообщений/сек
+
+			rate := 3 + rand.Intn(7)
 			messageRate.Set(float64(rate))
 
 			for i := 0; i < rate; i++ {
